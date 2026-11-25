@@ -1,13 +1,39 @@
-// Conteneur "fetcher" : récupère le Top 10 chez Apple et le fournit à l'app
+// Conteneur "fetcher" : lit le flux XML d'Apple et le fournit à l'app en JSON
 const http = require('node:http');
+const { XMLParser } = require('fast-xml-parser');
 
 const FEED_URL =
   process.env.FEED_URL ||
-  'https://rss.marketingtools.apple.com/api/v2/fr/music/most-played/10/songs.json';
+  'http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml';
 const PORT = process.env.PORT || 4000;
 const CACHE_MS = 10 * 60 * 1000; // on n'interroge Apple qu'une fois toutes les 10 minutes
 
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  removeNSPrefix: true, // <im:name> devient "name"
+  parseTagValue: false, // un titre comme "12" reste du texte
+  htmlEntities: true,
+  isArray: (tag) => tag === 'entry' || tag === 'image',
+});
+
 let cache = { songs: null, date: 0 };
+
+function parseSongs(xml) {
+  // <content> répète les infos en HTML et dépasse la limite de sécurité du parseur
+  const cleaned = xml.replace(/<content type="html">[\s\S]*?<\/content>/g, '');
+  const entries = parser.parse(cleaned).feed?.entry;
+  if (!entries) throw new Error('Flux XML sans chansons');
+
+  return entries.slice(0, 10).map((e, i) => ({
+    rank: i + 1,
+    title: e.name,
+    artist: e.artist?.['#text'] ?? e.artist,
+    releaseDate: e.releaseDate?.['#text'],
+    image: e.image?.at(-1)?.['#text'], // la plus grande pochette
+    url: e.id?.['#text'],
+  }));
+}
 
 async function getSongs() {
   if (cache.songs && Date.now() - cache.date < CACHE_MS) return cache.songs;
@@ -15,16 +41,8 @@ async function getSongs() {
   try {
     const response = await fetch(FEED_URL, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error(`Apple a répondu ${response.status}`);
-    const { feed } = await response.json();
 
-    const songs = feed.results.slice(0, 10).map((s, i) => ({
-      rank: i + 1,
-      title: s.name,
-      artist: s.artistName,
-      releaseDate: s.releaseDate,
-      image: s.artworkUrl100,
-      url: s.url,
-    }));
+    const songs = parseSongs(await response.text());
     cache = { songs, date: Date.now() };
     return songs;
   } catch (err) {

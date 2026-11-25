@@ -44,7 +44,7 @@ app.get('/', async (req, res) => {
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Top 10 Apple Music</title>
+  <title>Top 10 iTunes</title>
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
     table { width: 100%; border-collapse: collapse; }
@@ -53,7 +53,7 @@ app.get('/', async (req, res) => {
   </style>
 </head>
 <body>
-  <h1>Top 10 Apple Music (France)</h1>
+  <h1>Top 10 iTunes</h1>
   <table>
     <tr><th>#</th><th></th><th>Titre</th><th>Artiste</th></tr>
     ${lignes}

@@ -1,7 +1,10 @@
 FROM node:22-alpine
 WORKDIR /app
 
-# Aucune dépendance : fetch et http sont inclus dans Node
+# Dépendances d'abord pour profiter du cache Docker
+COPY package.json ./
+RUN npm install --omit=dev
+
 COPY server.js ./
 USER node
 EXPOSE 4000
