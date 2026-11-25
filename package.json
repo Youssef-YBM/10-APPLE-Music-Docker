@@ -1,0 +1,11 @@
+{
+  "name": "tp1",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose up --build",
+    "stop": "docker compose down",
+    "reset": "docker compose down -v",
+    "logs": "docker compose logs -f"
+  }
+}

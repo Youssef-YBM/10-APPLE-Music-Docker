@@ -1,0 +1,14 @@
+services:
+  # Va chercher les chansons chez Apple (pas de port exposé sur la machine)
+  fetcher:
+    build: ./fetcher
+
+  # Affiche les chansons
+  app:
+    build: ./app
+    ports:
+      - "3000:3000"
+    environment:
+      FETCHER_URL: http://fetcher:4000
+    depends_on:
+      - fetcher
