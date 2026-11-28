@@ -45,11 +45,8 @@
   title={#1}, arc=2mm, boxrule=0.8pt,
   listing options={
     basicstyle=\ttfamily\small,
-    commentstyle=\color{grisbleu}\itshape,
-    morecomment=[l]{\#},
     breaklines=true, showstringspaces=false,
-    columns=fullflexible, keepspaces=true,
-    literate={é}{{\'e}}1 {è}{{\`e}}1 {à}{{\`a}}1
+    columns=fullflexible, keepspaces=true
   }
 }
 
@@ -92,16 +89,19 @@ Dans ce TP, j'ai voulu réaliser une petite application qui affiche les
 \textbf{10 premières chansons} du classement iTunes. Au lieu de tout mettre au
 même endroit, je l'ai découpée en deux conteneurs qui ont chacun un rôle précis :
 
-\begin{tcbraster}[raster columns=2, raster equal height]
-  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title=\texttt{fetcher}]
+\noindent
+\begin{minipage}[t]{0.48\linewidth}
+  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title={Le conteneur fetcher}]
     Il va chercher le flux XML chez Apple, garde les informations utiles et les
     transforme en JSON.
   \end{tcolorbox}
-  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title=\texttt{app}]
-    Elle demande les chansons au \texttt{fetcher} et les affiche dans une page
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title={Le conteneur app}]
+    Il demande les chansons au \texttt{fetcher} et les affiche dans une page
     web avec leurs pochettes.
   \end{tcolorbox}
-\end{tcbraster}
+\end{minipage}
 
 \section{Architecture}
 Le dessin suivant montre le chemin d'une demande, du navigateur jusqu'à Apple,
@@ -140,7 +140,7 @@ de haut en bas et construit l'image étape par étape. Voici celui de l'applicat
 FROM node:22-alpine
 WORKDIR /app
 
-# Dépendances d'abord pour profiter du cache Docker
+# Dependances d'abord pour profiter du cache Docker
 COPY package.json ./
 RUN npm install --omit=dev
 
@@ -196,7 +196,7 @@ toute l'application dans un seul fichier.
 
 \begin{code}{docker-compose.yml}
 services:
-  # Va chercher les chansons chez Apple (pas de port exposé sur la machine)
+  # Va chercher les chansons chez Apple (aucun port publie)
   fetcher:
     build: ./fetcher
 
