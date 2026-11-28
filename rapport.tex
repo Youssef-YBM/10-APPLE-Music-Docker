@@ -3,51 +3,140 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{xcolor}
+\usepackage[margin=2.2cm,headheight=15pt]{geometry}
+\usepackage{lmodern}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,babel}
 \usepackage{listings}
-\usepackage{hyperref}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
 
-\lstset{
-  basicstyle=\ttfamily\small,
-  frame=single,
-  backgroundcolor=\color{gray!8},
-  commentstyle=\color{green!40!black},
-  breaklines=true,
-  showstringspaces=false,
-  columns=fullflexible,
-  keepspaces=true,
-  % accents dans les blocs de code
-  literate={é}{{\'e}}1 {è}{{\`e}}1 {à}{{\`a}}1
+% ---------- Couleurs ----------
+\definecolor{bleufonce}{HTML}{0B3C6F}
+\definecolor{bleu}{HTML}{1D6FC4}
+\definecolor{bleuclair}{HTML}{E8F2FC}
+\definecolor{grisbleu}{HTML}{5B6B7F}
+
+% ---------- Titres ----------
+\titleformat{\section}
+  {\Large\bfseries\color{bleufonce}}
+  {\colorbox{bleu}{\color{white}\strut\ \thesection\ }}{0.6em}{}
+  [\vspace{-4pt}{\color{bleu}\titlerule[1pt]}]
+\titleformat{\subsection}
+  {\large\bfseries\color{bleu}}{\thesubsection}{0.6em}{}
+
+% ---------- En-tête et pied de page ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{grisbleu}TP1 -- Virtualisation}
+\fancyhead[R]{\small\color{grisbleu}ERRAMI YOUSSEF}
+\fancyfoot[C]{\small\color{bleu}\thepage}
+\renewcommand{\headrule}{\color{bleu}\hrule height 0.8pt}
+
+% ---------- Blocs de code ----------
+\newtcblisting{code}[1]{
+  enhanced, listing only,
+  colback=bleuclair, colframe=bleufonce,
+  coltitle=white, fonttitle=\bfseries\ttfamily,
+  title={#1}, arc=2mm, boxrule=0.8pt,
+  listing options={
+    basicstyle=\ttfamily\small,
+    commentstyle=\color{grisbleu}\itshape,
+    morecomment=[l]{\#},
+    breaklines=true, showstringspaces=false,
+    columns=fullflexible, keepspaces=true,
+    literate={é}{{\'e}}1 {è}{{\`e}}1 {à}{{\`a}}1
+  }
 }
 
-\title{TP1 Virtualisation : Top 10 des chansons avec Docker}
-\author{ERRAMI YOUSSEF}
-\date{\today}
+% ---------- Encadré "à retenir" ----------
+\newtcolorbox{retenir}[1][À retenir]{
+  enhanced, colback=white, colframe=bleu,
+  borderline west={4pt}{0pt}{bleu}, boxrule=0.5pt,
+  coltitle=bleufonce, colbacktitle=bleuclair,
+  fonttitle=\bfseries, title={#1}, arc=1mm
+}
+
+% ---------- Styles des dessins ----------
+\tikzset{
+  boite/.style={draw=bleufonce, line width=0.9pt, rounded corners=3pt,
+    fill=bleuclair, minimum width=2.6cm, minimum height=1.3cm,
+    align=center, font=\small},
+  conteneur/.style={boite, fill=bleu, text=white},
+  fleche/.style={-{Stealth[length=2.5mm]}, line width=0.9pt, draw=bleufonce},
+  retour/.style={fleche, dashed, draw=bleu},
+  etiq/.style={font=\scriptsize, text=grisbleu, align=center}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.4}
 
 \begin{document}
-\maketitle
+
+% ---------- Bandeau de titre (pas de page de garde) ----------
+\begin{tcolorbox}[enhanced, colback=bleufonce, colframe=bleufonce, arc=3mm,
+  halign=center, top=5mm, bottom=5mm]
+  \color{white}
+  {\LARGE\bfseries Top 10 des chansons avec Docker}\\[3mm]
+  {\large ERRAMI YOUSSEF}\\[1mm]
+  {\small TP1 Virtualisation \quad$\bullet$\quad \today}
+\end{tcolorbox}
 
 \section{Objectif}
-L'application affiche les 10 premières chansons du classement iTunes.
-Elle est composée de deux conteneurs :
-\begin{itemize}
-  \item \texttt{fetcher} : télécharge le flux XML d'Apple et le convertit en JSON ;
-  \item \texttt{app} : interroge \texttt{fetcher} et affiche les chansons dans une page web.
-\end{itemize}
+Dans ce TP, j'ai voulu réaliser une petite application qui affiche les
+\textbf{10 premières chansons} du classement iTunes. Au lieu de tout mettre au
+même endroit, je l'ai découpée en deux conteneurs qui ont chacun un rôle précis :
+
+\begin{tcbraster}[raster columns=2, raster equal height]
+  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title=\texttt{fetcher}]
+    Il va chercher le flux XML chez Apple, garde les informations utiles et les
+    transforme en JSON.
+  \end{tcolorbox}
+  \begin{tcolorbox}[colback=bleuclair, colframe=bleu, title=\texttt{app}]
+    Elle demande les chansons au \texttt{fetcher} et les affiche dans une page
+    web avec leurs pochettes.
+  \end{tcolorbox}
+\end{tcbraster}
+
+\section{Architecture}
+Le dessin suivant montre le chemin d'une demande, du navigateur jusqu'à Apple,
+puis le retour de la réponse.
 
 \begin{center}
-\texttt{Apple (XML) $\rightarrow$ fetcher:4000 (JSON) $\rightarrow$ app:3000 $\rightarrow$ navigateur}
+\begin{tikzpicture}
+  \node[boite] (nav)   at (0,0)    {\textbf{Navigateur}\\utilisateur};
+  \node[conteneur] (app) at (4.4,0)  {\textbf{app}\\port 3000};
+  \node[conteneur] (fet) at (9,0)    {\textbf{fetcher}\\port 4000};
+  \node[boite, ellipse, minimum width=2.4cm] (apl) at (13.5,0) {\textbf{Apple}\\flux XML};
+
+  \draw[fleche] ([yshift=3mm]nav.east) -- node[etiq, above]{page} ([yshift=3mm]app.west);
+  \draw[retour] ([yshift=-3mm]app.west) -- node[etiq, below]{HTML} ([yshift=-3mm]nav.east);
+  \draw[fleche] ([yshift=3mm]app.east) -- node[etiq, above]{/songs} ([yshift=3mm]fet.west);
+  \draw[retour] ([yshift=-3mm]fet.west) -- node[etiq, below]{JSON} ([yshift=-3mm]app.east);
+  \draw[fleche] ([yshift=3mm]fet.east) -- node[etiq, above]{requête} ([yshift=3mm]apl.west);
+  \draw[retour] ([yshift=-3mm]apl.west) -- node[etiq, below]{XML} ([yshift=-3mm]fet.east);
+
+  \begin{scope}[on background layer]
+    \node[draw=bleu, dashed, line width=1pt, rounded corners=6pt, fill=bleu!5,
+      fit=(app)(fet), inner sep=5mm,
+      label={[text=bleu, font=\small\bfseries]above:Réseau Docker Compose}] {};
+  \end{scope}
+\end{tikzpicture}
 \end{center}
 
-Source des données :\\
-\url{http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml}
+La source des données est l'adresse suivante :\\
+{\small\url{http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml}}
 
-\section{Dockerfile}
-Un Dockerfile décrit les étapes de construction d'une image. Les deux services
-ont leur propre Dockerfile. Voici celui de \texttt{app} :
+\section{Le Dockerfile}
+Un Dockerfile est la \textbf{recette} d'une image : Docker lit les instructions
+de haut en bas et construit l'image étape par étape. Voici celui de l'application.
 
-\begin{lstlisting}[title={app/Dockerfile}]
+\begin{code}{app/Dockerfile}
 FROM node:22-alpine
 WORKDIR /app
 
@@ -59,28 +148,53 @@ COPY server.js ./
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
-\end{lstlisting}
+\end{code}
 
-\begin{description}
-  \item[\texttt{FROM}] image de base : Node.js 22 sur Alpine Linux, une distribution légère.
-  \item[\texttt{WORKDIR}] définit \texttt{/app} comme dossier de travail dans l'image.
-  \item[\texttt{COPY package.json}] copie la liste des dépendances.
-  \item[\texttt{RUN}] installe les dépendances pendant la construction, sans celles de développement.
-  \item[\texttt{COPY server.js}] copie le code. Comme il est copié après l'installation,
-        une modification du code ne relance pas \texttt{npm install} (cache des couches).
-  \item[\texttt{USER node}] exécute l'application sans les droits administrateur.
-  \item[\texttt{EXPOSE}] indique le port d'écoute ; cette instruction ne publie pas le port.
-  \item[\texttt{CMD}] commande lancée au démarrage du conteneur.
-\end{description}
+\subsection{Rôle de chaque instruction}
+\rowcolors{2}{bleuclair}{white}
+\begin{tabular}{>{\leavevmode\ttfamily\bfseries\color{bleufonce}}p{3.4cm} p{12cm}}
+\rowcolor{bleufonce}
+\color{white}Instruction& \color{white}\bfseries Explication \\
+FROM    & Image de départ : Node.js 22 sur Alpine, une version légère de Linux. \\
+WORKDIR & Dossier de travail à l'intérieur de l'image. \\
+COPY    & Copie les fichiers de ma machine vers l'image. \\
+RUN     & Installe les dépendances au moment de la construction. \\
+USER    & Lance l'application sans les droits administrateur. \\
+EXPOSE  & Indique le port utilisé, sans le publier sur la machine. \\
+CMD     & Commande exécutée au démarrage du conteneur. \\
+\end{tabular}
+\rowcolors{2}{}{}
 
-Le fichier \texttt{fetcher/Dockerfile} est identique, sauf le port :
-\texttt{EXPOSE 4000}. Dans chaque dossier, un fichier \texttt{.dockerignore}
-exclut \texttt{node\_modules} du contexte de construction.
+\subsection{L'image vue comme des couches}
+\begin{center}
+\begin{tikzpicture}[couche/.style={draw=white, line width=1pt, rounded corners=2pt,
+    minimum width=7.5cm, minimum height=7mm, font=\small\ttfamily}]
+  \node[couche, fill=bleufonce, text=white] (a) at (0,0)    {FROM node:22-alpine};
+  \node[couche, fill=bleu!85, text=white]   (b) at (0,0.75) {WORKDIR /app};
+  \node[couche, fill=bleu!65, text=white]   (c) at (0,1.5)  {COPY package.json};
+  \node[couche, fill=bleu!45]               (d) at (0,2.25) {RUN npm install};
+  \node[couche, fill=bleu!20]               (e) at (0,3)    {COPY server.js};
+  \draw[fleche] (-4.6,-0.3) -- node[etiq, left]{ordre de\\construction} (-4.6,3.3);
+  \node[etiq, right=4mm of e] {change souvent};
+  \node[etiq, right=4mm of c] {change rarement\\(gardé en cache)};
+\end{tikzpicture}
+\end{center}
+
+\begin{retenir}
+Je copie \texttt{package.json} \textbf{avant} le code. Ainsi, quand je modifie
+seulement \texttt{server.js}, Docker réutilise le cache et ne réinstalle pas les
+dépendances : la construction est beaucoup plus rapide.
+\end{retenir}
+
+Le Dockerfile du \texttt{fetcher} suit le même modèle, avec le port 4000
+(\texttt{EXPOSE 4000}). Dans les deux dossiers, un fichier \texttt{.dockerignore}
+évite de copier \texttt{node\_modules} dans le contexte de construction.
 
 \section{Docker Compose}
-Docker Compose permet de définir et de lancer plusieurs conteneurs avec un seul fichier.
+Lancer chaque conteneur à la main serait répétitif. Avec Docker Compose, je décris
+toute l'application dans un seul fichier.
 
-\begin{lstlisting}[title={docker-compose.yml}]
+\begin{code}{docker-compose.yml}
 services:
   # Va chercher les chansons chez Apple (pas de port exposé sur la machine)
   fetcher:
@@ -95,46 +209,60 @@ services:
       FETCHER_URL: http://fetcher:4000
     depends_on:
       - fetcher
-\end{lstlisting}
+\end{code}
 
-\begin{description}
-  \item[\texttt{services}] liste des conteneurs de l'application.
-  \item[\texttt{build}] dossier contenant le Dockerfile à construire.
-  \item[\texttt{ports}] relie le port 3000 de la machine au port 3000 du conteneur.
-  \item[\texttt{environment}] transmet l'adresse du \texttt{fetcher} à l'application.
-  \item[\texttt{depends\_on}] démarre \texttt{fetcher} avant \texttt{app}, sans attendre
-        qu'il soit prêt à répondre.
-\end{description}
+\rowcolors{2}{bleuclair}{white}
+\begin{tabular}{>{\leavevmode\ttfamily\bfseries\color{bleufonce}}p{3.4cm} p{12cm}}
+\rowcolor{bleufonce}
+\color{white}Clé& \color{white}\bfseries Explication \\
+services    & La liste des conteneurs de l'application. \\
+build       & Le dossier qui contient le Dockerfile à construire. \\
+ports       & Relie le port 3000 de la machine à celui du conteneur. \\
+environment & Donne à \texttt{app} l'adresse du \texttt{fetcher}. \\
+depends\_on & Démarre \texttt{fetcher} avant \texttt{app}, sans attendre qu'il soit prêt. \\
+\end{tabular}
+\rowcolors{2}{}{}
 
-\subsection*{Communication entre les conteneurs}
-Compose crée un réseau commun aux deux services. Chaque conteneur est joignable par
-son nom de service : \texttt{app} appelle donc \texttt{http://fetcher:4000/songs}.
-Le port 4000 n'est pas publié : seule l'application est accessible depuis la machine.
+\begin{retenir}[Comment les conteneurs se parlent]
+Compose crée un réseau commun, où chaque service est joignable par son \textbf{nom}.
+L'application appelle donc \texttt{http://fetcher:4000/songs}, sans connaître son
+adresse IP. Le port 4000 n'est pas publié : seule l'application est visible depuis
+la machine.
+\end{retenir}
 
 \section{Exécution}
-Les commandes sont définies dans le fichier \texttt{package.json} à la racine.
+Une seule commande suffit pour tout démarrer :
 
 \begin{center}
-\begin{tabular}{lll}
-\hline
-\textbf{Commande} & \textbf{Commande Docker} & \textbf{Rôle} \\
-\hline
-\texttt{npm run dev}  & \texttt{docker compose up --build} & construire et démarrer \\
-\texttt{npm run logs} & \texttt{docker compose logs -f}    & suivre les logs \\
-\texttt{npm run stop} & \texttt{docker compose down}       & arrêter et supprimer \\
-\hline
-\end{tabular}
+\begin{tikzpicture}[etape/.style={boite, minimum width=2.5cm}]
+  \node[conteneur, minimum width=2.5cm] (a) at (0,0) {\texttt{npm run}\\\texttt{dev}};
+  \node[etape] (b) at (3.3,0)  {Construction\\des images};
+  \node[etape] (c) at (6.6,0)  {Création\\du réseau};
+  \node[etape] (d) at (9.9,0)  {Démarrage\\\texttt{fetcher}};
+  \node[etape] (e) at (13.2,0) {Démarrage\\\texttt{app}};
+  \foreach \i/\j in {a/b, b/c, c/d, d/e} \draw[fleche] (\i) -- (\j);
+\end{tikzpicture}
 \end{center}
 
-Après le démarrage :
-\begin{itemize}
-  \item page web : \url{http://localhost:3000}
-  \item données JSON : \url{http://localhost:3000/api/songs}
-\end{itemize}
+\rowcolors{2}{bleuclair}{white}
+\begin{tabular}{p{3.4cm} p{6.2cm} p{5.4cm}}
+\rowcolor{bleufonce}
+\leavevmode\color{white}\bfseries Commande & \leavevmode\color{white}\bfseries Commande Docker & \leavevmode\color{white}\bfseries Rôle \\
+\texttt{npm run dev}  & \texttt{docker compose up --build} & Construire et démarrer \\
+\texttt{npm run logs} & \texttt{docker compose logs -f}    & Suivre les messages \\
+\texttt{npm run stop} & \texttt{docker compose down}       & Arrêter et supprimer \\
+\end{tabular}
+\rowcolors{2}{}{}
+
+Une fois les conteneurs démarrés, la page est disponible sur
+\url{http://localhost:3000} et les données JSON sur
+\url{http://localhost:3000/api/songs}.
 
 \section{Conclusion}
-Les deux conteneurs ont été construits et lancés avec Docker Compose, et l'API de
-l'application a renvoyé les 10 chansons. La séparation en deux services permet de
-modifier la source des données sans changer l'affichage.
+Les deux conteneurs ont été construits et lancés avec Docker Compose, et
+l'application a bien renvoyé les 10 chansons. Ce TP m'a permis de pratiquer
+l'écriture d'un Dockerfile, l'organisation de plusieurs services avec Compose et
+la communication entre conteneurs. Comme les rôles sont séparés, je peux changer
+la source des données sans toucher à l'affichage.
 
 \end{document}
