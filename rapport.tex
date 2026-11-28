@@ -1,0 +1,140 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+  commentstyle=\color{green!40!black},
+  breaklines=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  % accents dans les blocs de code
+  literate={é}{{\'e}}1 {è}{{\`e}}1 {à}{{\`a}}1
+}
+
+\title{TP1 Virtualisation : Top 10 des chansons avec Docker}
+\author{ERRAMI YOUSSEF}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Objectif}
+L'application affiche les 10 premières chansons du classement iTunes.
+Elle est composée de deux conteneurs :
+\begin{itemize}
+  \item \texttt{fetcher} : télécharge le flux XML d'Apple et le convertit en JSON ;
+  \item \texttt{app} : interroge \texttt{fetcher} et affiche les chansons dans une page web.
+\end{itemize}
+
+\begin{center}
+\texttt{Apple (XML) $\rightarrow$ fetcher:4000 (JSON) $\rightarrow$ app:3000 $\rightarrow$ navigateur}
+\end{center}
+
+Source des données :\\
+\url{http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml}
+
+\section{Dockerfile}
+Un Dockerfile décrit les étapes de construction d'une image. Les deux services
+ont leur propre Dockerfile. Voici celui de \texttt{app} :
+
+\begin{lstlisting}[title={app/Dockerfile}]
+FROM node:22-alpine
+WORKDIR /app
+
+# Dépendances d'abord pour profiter du cache Docker
+COPY package.json ./
+RUN npm install --omit=dev
+
+COPY server.js ./
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
+\end{lstlisting}
+
+\begin{description}
+  \item[\texttt{FROM}] image de base : Node.js 22 sur Alpine Linux, une distribution légère.
+  \item[\texttt{WORKDIR}] définit \texttt{/app} comme dossier de travail dans l'image.
+  \item[\texttt{COPY package.json}] copie la liste des dépendances.
+  \item[\texttt{RUN}] installe les dépendances pendant la construction, sans celles de développement.
+  \item[\texttt{COPY server.js}] copie le code. Comme il est copié après l'installation,
+        une modification du code ne relance pas \texttt{npm install} (cache des couches).
+  \item[\texttt{USER node}] exécute l'application sans les droits administrateur.
+  \item[\texttt{EXPOSE}] indique le port d'écoute ; cette instruction ne publie pas le port.
+  \item[\texttt{CMD}] commande lancée au démarrage du conteneur.
+\end{description}
+
+Le fichier \texttt{fetcher/Dockerfile} est identique, sauf le port :
+\texttt{EXPOSE 4000}. Dans chaque dossier, un fichier \texttt{.dockerignore}
+exclut \texttt{node\_modules} du contexte de construction.
+
+\section{Docker Compose}
+Docker Compose permet de définir et de lancer plusieurs conteneurs avec un seul fichier.
+
+\begin{lstlisting}[title={docker-compose.yml}]
+services:
+  # Va chercher les chansons chez Apple (pas de port exposé sur la machine)
+  fetcher:
+    build: ./fetcher
+
+  # Affiche les chansons
+  app:
+    build: ./app
+    ports:
+      - "3000:3000"
+    environment:
+      FETCHER_URL: http://fetcher:4000
+    depends_on:
+      - fetcher
+\end{lstlisting}
+
+\begin{description}
+  \item[\texttt{services}] liste des conteneurs de l'application.
+  \item[\texttt{build}] dossier contenant le Dockerfile à construire.
+  \item[\texttt{ports}] relie le port 3000 de la machine au port 3000 du conteneur.
+  \item[\texttt{environment}] transmet l'adresse du \texttt{fetcher} à l'application.
+  \item[\texttt{depends\_on}] démarre \texttt{fetcher} avant \texttt{app}, sans attendre
+        qu'il soit prêt à répondre.
+\end{description}
+
+\subsection*{Communication entre les conteneurs}
+Compose crée un réseau commun aux deux services. Chaque conteneur est joignable par
+son nom de service : \texttt{app} appelle donc \texttt{http://fetcher:4000/songs}.
+Le port 4000 n'est pas publié : seule l'application est accessible depuis la machine.
+
+\section{Exécution}
+Les commandes sont définies dans le fichier \texttt{package.json} à la racine.
+
+\begin{center}
+\begin{tabular}{lll}
+\hline
+\textbf{Commande} & \textbf{Commande Docker} & \textbf{Rôle} \\
+\hline
+\texttt{npm run dev}  & \texttt{docker compose up --build} & construire et démarrer \\
+\texttt{npm run logs} & \texttt{docker compose logs -f}    & suivre les logs \\
+\texttt{npm run stop} & \texttt{docker compose down}       & arrêter et supprimer \\
+\hline
+\end{tabular}
+\end{center}
+
+Après le démarrage :
+\begin{itemize}
+  \item page web : \url{http://localhost:3000}
+  \item données JSON : \url{http://localhost:3000/api/songs}
+\end{itemize}
+
+\section{Conclusion}
+Les deux conteneurs ont été construits et lancés avec Docker Compose, et l'API de
+l'application a renvoyé les 10 chansons. La séparation en deux services permet de
+modifier la source des données sans changer l'affichage.
+
+\end{document}
